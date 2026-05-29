@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="SchoolMS.API/SchoolMS.API.csproj" />
+  <Project Path="SchoolMS.Core/SchoolMS.Core.csproj" />
+  <Project Path="SchoolMS.Infrastructure/SchoolMS.Infrastructure.csproj" />
+</Solution>
