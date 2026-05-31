@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolMS.API.Extensions;
 using SchoolMS.Infrastructure.Data;
 
 namespace SchoolMS.API.Controllers
@@ -14,24 +15,38 @@ namespace SchoolMS.API.Controllers
         public DashboardController(AppDbContext context) => _context = context;
 
         [HttpGet("stats")]
+        [Authorize]
         public async Task<IActionResult> GetStats()
         {
+            var userId = User.GetUserId();
+            var role = User.GetRole();
             var today = DateTime.UtcNow.Date;
             var thisMonth = new DateTime(today.Year, today.Month, 1);
 
+            if (role == "Admin")
+            {
+                return await GetAdminStats(today, thisMonth);
+            }
+            else if (role == "Teacher")
+            {
+                return await GetTeacherStats(userId, today);
+            }
+
+            return Ok(new { success = true, data = new { } });
+        }
+
+        private async Task<IActionResult> GetAdminStats(DateTime today, DateTime thisMonth)
+        {
             var totalStudents = await _context.Students.CountAsync();
             var totalTeachers = await _context.Teachers.CountAsync();
             var totalClasses = await _context.Classes.CountAsync();
             var newStudentsMonth = await _context.Students.CountAsync(s => s.CreatedAt >= thisMonth);
             var newTeachersMonth = await _context.Teachers.CountAsync(t => t.CreatedAt >= thisMonth);
 
-            // Attendance today
             var totalToday = await _context.Attendances.CountAsync(a => a.AttendanceDate.Date == today);
             var presentToday = await _context.Attendances.CountAsync(a => a.AttendanceDate.Date == today && a.Status == "Present");
-            var attendancePercent = totalToday > 0
-                ? Math.Round((double)presentToday / totalToday * 100, 1) : 0;
+            var attendancePercent = totalToday > 0 ? Math.Round((double)presentToday / totalToday * 100, 1) : 0;
 
-            // Notices
             var totalNotices = await _context.Notices.CountAsync();
             var recentNotices = await _context.Notices
                 .OrderByDescending(n => n.NoticeDate)
@@ -39,7 +54,6 @@ namespace SchoolMS.API.Controllers
                 .Select(n => new { n.Id, n.Title, n.Description, n.NoticeDate })
                 .ToListAsync();
 
-            // Attendance trend last 7 days
             var attendanceTrend = new List<object>();
             for (int i = 6; i >= 0; i--)
             {
@@ -47,16 +61,9 @@ namespace SchoolMS.API.Controllers
                 var total = await _context.Attendances.CountAsync(a => a.AttendanceDate.Date == date);
                 var present = await _context.Attendances.CountAsync(a => a.AttendanceDate.Date == date && a.Status == "Present");
                 var percent = total > 0 ? Math.Round((double)present / total * 100, 1) : 0;
-                attendanceTrend.Add(new
-                {
-                    Date = date.ToString("MMM dd"),
-                    Total = total,
-                    Present = present,
-                    Percent = percent
-                });
+                attendanceTrend.Add(new { Date = date.ToString("MMM dd"), Total = total, Present = present, Percent = percent });
             }
 
-            // Students per class
             var studentsPerClass = await _context.Classes
                 .Select(c => new {
                     ClassName = c.ClassName + " - " + c.Section,
@@ -65,10 +72,8 @@ namespace SchoolMS.API.Controllers
                 .Where(x => x.Count > 0)
                 .ToListAsync();
 
-            // Recent Students — last 5
             var recentStudents = await _context.Students
-                .Include(s => s.User)
-                .Include(s => s.Class)
+                .Include(s => s.User).Include(s => s.Class)
                 .OrderByDescending(s => s.CreatedAt)
                 .Take(5)
                 .Select(s => new {
@@ -80,7 +85,6 @@ namespace SchoolMS.API.Controllers
                 })
                 .ToListAsync();
 
-            // Recent Teachers — last 5
             var recentTeachers = await _context.Teachers
                 .Include(t => t.User)
                 .OrderByDescending(t => t.CreatedAt)
@@ -94,10 +98,7 @@ namespace SchoolMS.API.Controllers
                 })
                 .ToListAsync();
 
-            // Activity Feed — combine recent actions
             var activityFeed = new List<object>();
-
-            // Recent students as activity
             foreach (var s in recentStudents)
                 activityFeed.Add(new
                 {
@@ -108,8 +109,6 @@ namespace SchoolMS.API.Controllers
                     SubText = s.ClassName,
                     CreatedAt = s.CreatedAt
                 });
-
-            // Recent teachers as activity
             foreach (var t in recentTeachers)
                 activityFeed.Add(new
                 {
@@ -120,8 +119,6 @@ namespace SchoolMS.API.Controllers
                     SubText = t.Qualification,
                     CreatedAt = t.CreatedAt
                 });
-
-            // Recent notices as activity
             foreach (var n in recentNotices)
                 activityFeed.Add(new
                 {
@@ -133,17 +130,16 @@ namespace SchoolMS.API.Controllers
                     CreatedAt = n.NoticeDate
                 });
 
-            // Sort by date
             var sortedFeed = activityFeed
                 .OrderByDescending(a => ((dynamic)a).CreatedAt)
-                .Take(10)
-                .ToList();
+                .Take(10).ToList();
 
             return Ok(new
             {
                 success = true,
                 data = new
                 {
+                    Role = "Admin",
                     TotalStudents = totalStudents,
                     TotalTeachers = totalTeachers,
                     TotalClasses = totalClasses,
@@ -159,6 +155,78 @@ namespace SchoolMS.API.Controllers
                     ActivityFeed = sortedFeed,
                     AttendanceTrend = attendanceTrend,
                     StudentsPerClass = studentsPerClass
+                }
+            });
+        }
+
+        private async Task<IActionResult> GetTeacherStats(int userId, DateTime today)
+        {
+            var teacher = await _context.Teachers
+                .FirstOrDefaultAsync(t => t.UserId == userId);
+
+            if (teacher == null)
+                return Ok(new { success = true, data = new { Role = "Teacher" } });
+
+            var teacherClassIds = await _context.TeacherClasses
+                .Where(tc => tc.TeacherId == teacher.Id && tc.IsActive)
+                .Select(tc => tc.ClassId)
+                .ToListAsync();
+
+            var myStudents = await _context.Students
+                .CountAsync(s => teacherClassIds.Contains(s.ClassId));
+
+            var myClasses = teacherClassIds.Count;
+
+            var presentToday = await _context.Attendances
+                .CountAsync(a => teacherClassIds.Contains(a.ClassId)
+                              && a.AttendanceDate.Date == today
+                              && a.Status == "Present");
+
+            var totalToday = await _context.Attendances
+                .CountAsync(a => teacherClassIds.Contains(a.ClassId)
+                              && a.AttendanceDate.Date == today);
+
+            var attendancePercent = totalToday > 0
+                ? Math.Round((double)presentToday / totalToday * 100, 1) : 0;
+
+            var recentNotices = await _context.Notices
+                .OrderByDescending(n => n.NoticeDate)
+                .Take(5)
+                .Select(n => new { n.Id, n.Title, n.Description, n.NoticeDate })
+                .ToListAsync();
+
+            var myExams = await _context.Exams
+                .Where(e => teacherClassIds.Contains(e.ClassId))
+                .CountAsync();
+
+            // Attendance trend for my classes
+            var attendanceTrend = new List<object>();
+            for (int i = 6; i >= 0; i--)
+            {
+                var date = today.AddDays(-i);
+                var total = await _context.Attendances.CountAsync(a =>
+                    teacherClassIds.Contains(a.ClassId) && a.AttendanceDate.Date == date);
+                var present = await _context.Attendances.CountAsync(a =>
+                    teacherClassIds.Contains(a.ClassId) && a.AttendanceDate.Date == date && a.Status == "Present");
+                var percent = total > 0 ? Math.Round((double)present / total * 100, 1) : 0;
+                attendanceTrend.Add(new { Date = date.ToString("MMM dd"), Total = total, Present = present, Percent = percent });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    Role = "Teacher",
+                    MyStudents = myStudents,
+                    MyClasses = myClasses,
+                    MyExams = myExams,
+                    AttendanceToday = attendancePercent,
+                    PresentToday = presentToday,
+                    TotalToday = totalToday,
+                    TotalNotices = recentNotices.Count,
+                    RecentNotices = recentNotices,
+                    AttendanceTrend = attendanceTrend,
                 }
             });
         }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolMS.API.Extensions;
 using SchoolMS.Core.Entities;
 using SchoolMS.Infrastructure.Data;
 
@@ -32,14 +33,16 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]  // Sirf Admin
         public async Task<IActionResult> Create([FromBody] CreateNoticeDto dto)
         {
+            var userId = User.GetUserId();
             var notice = new Notice
             {
                 Title = dto.Title,
                 Description = dto.Description,
                 NoticeDate = DateTime.UtcNow,
-                CreatedBy = dto.CreatedBy,
+                CreatedBy = userId,    // ← Current user
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -49,22 +52,26 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] CreateNoticeDto dto)
         {
+            var userId = User.GetUserId();
             var notice = await _context.Notices.FindAsync(id);
             if (notice == null)
                 return NotFound(new { success = false, message = "Notice not found" });
 
             notice.Title = dto.Title;
             notice.Description = dto.Description;
-            notice.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            notice.UpdatedBy = userId;     // ← Current user
+            notice.UpdatedAt = DateTime.UtcNow; await _context.SaveChangesAsync();
             return Ok(new { success = true, message = "Updated successfully" });
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
+
             var notice = await _context.Notices.FindAsync(id);
             if (notice == null)
                 return NotFound(new { success = false, message = "Notice not found" });

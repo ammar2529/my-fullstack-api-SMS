@@ -34,12 +34,28 @@ namespace SchoolMS.Infrastructure.Services
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return null;
 
+            // Teacher ya Student ka Id nikalo
+            int roleId = 0;
+            if (user.Role!.RoleName == "Teacher")
+            {
+                var teacher = await _context.Teachers
+                    .FirstOrDefaultAsync(t => t.UserId == user.Id);
+                roleId = teacher?.Id ?? 0;
+            }
+            else if (user.Role!.RoleName == "Student")
+            {
+                var student = await _context.Students
+                    .FirstOrDefaultAsync(s => s.UserId == user.Id);
+                roleId = student?.Id ?? 0;
+            }
+
             return new LoginResponseDto
             {
                 Token = GenerateToken(user),
                 FullName = user.FullName,
                 Role = user.Role!.RoleName,
-                UserId = user.Id
+                UserId = user.Id,
+                RoleId = roleId  // ← Teacher/Student Id
             };
         }
 

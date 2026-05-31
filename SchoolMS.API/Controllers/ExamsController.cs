@@ -6,7 +6,7 @@ using SchoolMS.Infrastructure.Data;
 
 namespace SchoolMS.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin,Teacher")]
     [ApiController]
     [Route("api/[controller]")]
     public class ExamsController : ControllerBase
@@ -33,6 +33,7 @@ namespace SchoolMS.API.Controllers
             return Ok(new { success = true, data = exams });
         }
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] CreateExamDto dto)
         {
             try
@@ -58,6 +59,7 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] CreateExamDto dto)
         {
             var exam = await _context.Exams.FindAsync(id);
@@ -76,6 +78,7 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var exam = await _context.Exams.FindAsync(id);

@@ -6,7 +6,7 @@ using SchoolMS.Infrastructure.Data;
 
 namespace SchoolMS.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class TransportController : ControllerBase

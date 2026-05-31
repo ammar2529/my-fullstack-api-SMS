@@ -6,7 +6,7 @@ using SchoolMS.Infrastructure.Data;
 
 namespace SchoolMS.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin,Teacher")]
     [ApiController]
     [Route("api/[controller]")]
     public class LibraryController : ControllerBase

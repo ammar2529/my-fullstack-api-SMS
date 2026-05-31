@@ -25,6 +25,8 @@ namespace SchoolMS.Infrastructure.Data
         public DbSet<Transport> Transports => Set<Transport>();
         public DbSet<StudentTransport> StudentTransports => Set<StudentTransport>();
         public DbSet<TeacherClass> TeacherClasses => Set<TeacherClass>();
+
+        public DbSet<Datesheet> Datesheets => Set<Datesheet>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // =============================================
@@ -112,6 +114,13 @@ namespace SchoolMS.Infrastructure.Data
                 .OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<TeacherClass>()
                 .HasQueryFilter(x => x.IsActive);
+            modelBuilder.Entity<Datesheet>()
+    .HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId)
+    .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Datesheet>()
+                .HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Datesheet>().HasQueryFilter(x => x.IsActive);
             // =============================================
             // QUERY FILTERS
             // =============================================

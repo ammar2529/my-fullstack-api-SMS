@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolMS.API.Extensions;
 using SchoolMS.Core.Entities;
 using SchoolMS.Infrastructure.Data;
 
@@ -184,8 +185,30 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpGet("byexam/{examId}/{classId}")]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> GetByExamAndClass(int examId, int classId)
         {
+
+            var userId = User.GetUserId();
+            var role = User.GetRole();
+
+            // Teacher check — sirf apni assigned class
+            if (role == "Teacher")
+            {
+                var teacher = await _context.Teachers
+                    .FirstOrDefaultAsync(t => t.UserId == userId);
+
+                if (teacher != null)
+                {
+                    var isAssigned = await _context.TeacherClasses
+                        .AnyAsync(tc => tc.TeacherId == teacher.Id
+                                     && tc.ClassId == classId
+                                     && tc.IsActive);
+
+                    if (!isAssigned)
+                        return Forbid();
+                }
+            }
             var exam = await _context.Exams
                 .Include(e => e.Class)
                 .FirstOrDefaultAsync(e => e.Id == examId);

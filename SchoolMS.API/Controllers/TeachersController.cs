@@ -1,12 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolMS.API.Extensions;
 using SchoolMS.Core.Entities;
 using SchoolMS.Infrastructure.Data;
 
 namespace SchoolMS.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class TeachersController : ControllerBase
@@ -41,6 +42,7 @@ namespace SchoolMS.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateTeacherDto dto)
         {
+            var userId = User.GetUserId();
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -50,7 +52,8 @@ namespace SchoolMS.API.Controllers
                     Email = dto.Email,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password ?? "Teacher@123"),
                     RoleId = 2,
-                    IsActive = true
+                    IsActive = true,
+
                 };
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
@@ -62,7 +65,9 @@ namespace SchoolMS.API.Controllers
                     Qualification = dto.Qualification,
                     JoiningDate = dto.JoiningDate,
                     Salary = dto.Salary,
-                    IsActive = true
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = userId
                 };
                 _context.Teachers.Add(teacher);
                 await _context.SaveChangesAsync();
@@ -81,6 +86,7 @@ namespace SchoolMS.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateTeacherDto dto)
         {
+
             var teacher = await _context.Teachers
                 .Include(t => t.User)
                 .FirstOrDefaultAsync(t => t.Id == id);
@@ -99,6 +105,7 @@ namespace SchoolMS.API.Controllers
                 teacher.User.FullName = dto.FullName;
                 teacher.User.Email = dto.Email;
                 teacher.User.UpdatedAt = DateTime.UtcNow;
+
             }
 
             await _context.SaveChangesAsync();

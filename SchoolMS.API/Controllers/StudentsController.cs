@@ -2,12 +2,13 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolMS.API.Extensions;
 using SchoolMS.Core.Entities;
 using SchoolMS.Infrastructure.Data;
 
 namespace SchoolMS.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Admin,Teacher")]
     [Route("api/[controller]")]
     [ApiController]
     public class StudentsController : ControllerBase
@@ -20,8 +21,33 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> GetAll()
         {
+
+            var userId = User.GetUserId();
+            var role = User.GetRole();
+
+            IQueryable<Student> query = _context.Students
+                .Include(s => s.User)
+                .Include(s => s.Class);
+
+            // Teacher sirf apni class ke students dekhe
+            if (role == "Teacher")
+            {
+                var teacher = await _context.Teachers
+                    .FirstOrDefaultAsync(t => t.UserId == userId);
+
+                if (teacher == null)
+                    return Ok(new { success = true, data = new List<object>() });
+
+                var teacherClassIds = await _context.TeacherClasses
+                    .Where(tc => tc.TeacherId == teacher.Id && tc.IsActive)
+                    .Select(tc => tc.ClassId)
+                    .ToListAsync();
+
+                query = query.Where(s => teacherClassIds.Contains(s.ClassId));
+            }
             var students = await _context.Students
                 .Include(s => s.User)
                 .Include(s => s.Class)
@@ -59,8 +85,11 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
+
         public async Task<IActionResult> Create([FromBody] CreateStudentDto dto)
         {
+            var userId = User.GetUserId();
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -71,7 +100,9 @@ namespace SchoolMS.API.Controllers
                     Email = dto.Email,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password ?? "Student@123"),
                     RoleId = 3, // Student Role
-                    IsActive = true
+                    IsActive = true,
+                    CreatedBy = userId,    // ← Add
+                    CreatedAt = DateTime.UtcNow
                 };
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
@@ -87,7 +118,9 @@ namespace SchoolMS.API.Controllers
                     Address = dto.Address,
                     DOB = dto.DOB,
                     AdmissionDate = DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = true,
+                    CreatedBy = userId,    // ← Add
+                    CreatedAt = DateTime.UtcNow
                 };
                 _context.Students.Add(student);
                 await _context.SaveChangesAsync();
@@ -103,8 +136,10 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateStudentDto dto)
         {
+            var userId = User.GetUserId();
             var student = await _context.Students
                 .Include(s => s.User)
                 .FirstOrDefaultAsync(s => s.Id == id);
@@ -119,11 +154,14 @@ namespace SchoolMS.API.Controllers
             student.Address = dto.Address;
             student.DOB = dto.DOB;
             student.UpdatedAt = DateTime.UtcNow;
+            student.UpdatedBy = userId;     // ← Add
+            student.UpdatedAt = DateTime.UtcNow;
 
             if (student.User != null)
             {
                 student.User.FullName = dto.FullName;
                 student.User.Email = dto.Email;
+                student.User.UpdatedBy = userId;  // ← Add
                 student.User.UpdatedAt = DateTime.UtcNow;
             }
 
@@ -132,8 +170,10 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = User.GetUserId();
             var student = await _context.Students
                 .Include(s => s.User)
                 .FirstOrDefaultAsync(s => s.Id == id);
