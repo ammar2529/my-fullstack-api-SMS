@@ -27,6 +27,7 @@ namespace SchoolMS.Infrastructure.Data
         public DbSet<TeacherClass> TeacherClasses => Set<TeacherClass>();
 
         public DbSet<Datesheet> Datesheets => Set<Datesheet>();
+        public DbSet<SchoolSettings> SchoolSettings => Set<SchoolSettings>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // =============================================
