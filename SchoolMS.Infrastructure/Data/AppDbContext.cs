@@ -28,6 +28,8 @@ namespace SchoolMS.Infrastructure.Data
 
         public DbSet<Datesheet> Datesheets => Set<Datesheet>();
         public DbSet<SchoolSettings> SchoolSettings => Set<SchoolSettings>();
+
+        public DbSet<Holiday> Holidays => Set<Holiday>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // =============================================
@@ -122,6 +124,7 @@ namespace SchoolMS.Infrastructure.Data
                 .HasOne(x => x.Subject).WithMany().HasForeignKey(x => x.SubjectId)
                 .OnDelete(DeleteBehavior.NoAction);
             modelBuilder.Entity<Datesheet>().HasQueryFilter(x => x.IsActive);
+            modelBuilder.Entity<Holiday>().HasQueryFilter(x => x.IsActive);
             // =============================================
             // QUERY FILTERS
             // =============================================
