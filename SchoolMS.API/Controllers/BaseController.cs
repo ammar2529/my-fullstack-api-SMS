@@ -31,7 +31,7 @@ namespace SchoolMS.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create(T entity)
+        public  async Task<IActionResult> Create(T entity)
         {
             var result = await _repo.AddAsync(entity);
             return Ok(new { success = true, data = result });

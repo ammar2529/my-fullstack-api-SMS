@@ -16,5 +16,6 @@ namespace SchoolMS.Core.Entities
         public string Address { get; set; } = string.Empty;
         public DateTime DOB { get; set; }
         public DateTime AdmissionDate { get; set; } = DateTime.UtcNow;
+        public string? ProfilePicture { get; set; }
     }
 }

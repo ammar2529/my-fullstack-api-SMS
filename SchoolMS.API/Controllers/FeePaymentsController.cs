@@ -191,6 +191,86 @@ namespace SchoolMS.API.Controllers
             return Ok(new { success = true, message = "Fees collection updated successfully!" });
         }
 
+        [HttpGet("receipt/{paymentId}")]
+        public async Task<IActionResult> GetReceipt(int paymentId)
+        {
+            var payment = await _context.FeePayments
+                .Include(p => p.Student).ThenInclude(s => s!.User)
+                .Include(p => p.Student).ThenInclude(s => s!.Class)
+                .Include(p => p.FeeStructure)
+                .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+            if (payment == null)
+                return NotFound(new { success = false, message = "Payment not found" });
+
+            var school = await _context.SchoolSettings.FirstOrDefaultAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    ReceiptNo = $"RCP-{payment.Id:D5}",
+                    SchoolName = school?.SchoolName ?? "School Management System",
+                    SchoolAddress = school?.SchoolAddress ?? "",
+                    Principal = school?.Principal ?? "",
+                    StudentName = payment.Student?.User?.FullName,
+                    RollNo = payment.Student?.RollNo,
+                    ClassName = payment.Student?.Class?.ClassName + " - " + payment.Student?.Class?.Section,
+                    FeeType = payment.FeeStructure?.FeeType,
+                    Month = payment.Month,
+                    TotalAmount = payment.FeeStructure?.Amount,
+                    AmountPaid = payment.AmountPaid,
+                    Balance = (payment.FeeStructure?.Amount ?? 0) - payment.AmountPaid,
+                    PaymentDate = payment.PaymentDate,
+                    PaymentMethod = payment.PaymentMethod,
+                    Status = payment.Status,
+                    Remarks = payment.Remarks
+                }
+            });
+        }
+
+        // Monthly summary report
+        [HttpGet("monthly-summary")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetMonthlySummary([FromQuery] string month)
+        {
+            var payments = await _context.FeePayments
+                .Include(p => p.Student).ThenInclude(s => s!.Class)
+                .Include(p => p.FeeStructure)
+                .Where(p => p.Month == month && p.IsActive)
+                .Select(p => new {
+                    p.Id,
+                    p.StudentId,
+                    StudentName = p.Student!.User!.FullName,
+                    RollNo = p.Student!.RollNo,
+                    ClassName = p.Student!.Class!.ClassName + " - " + p.Student!.Class!.Section,
+                    FeeType = p.FeeStructure!.FeeType,
+                    TotalAmount = p.FeeStructure!.Amount,
+                    p.AmountPaid,
+                    p.Status,
+                    p.PaymentMethod,
+                    p.PaymentDate
+                })
+                .ToListAsync();
+
+            var summary = new
+            {
+                TotalCollected = payments.Sum(p => p.AmountPaid),
+                TotalStudents = payments.Select(p => p.StudentId).Distinct().Count(),
+                PaidCount = payments.Count(p => p.Status == "Paid"),
+                PendingCount = payments.Count(p => p.Status == "Pending"),
+                UnpaidCount = payments.Count(p => p.Status == "Unpaid"),
+                ByFeeType = payments.GroupBy(p => p.FeeType).Select(g => new {
+                    FeeType = g.Key,
+                    Collected = g.Sum(p => p.AmountPaid),
+                    Count = g.Count()
+                })
+            };
+
+            return Ok(new { success = true, data = new { Payments = payments, Summary = summary } });
+        }
+
         // Request DTO class controller file ke baahir ya bottom par rakh sakte hain
         public class BulkFeeSaveDto
         {

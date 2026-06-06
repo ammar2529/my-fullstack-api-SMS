@@ -63,7 +63,8 @@ namespace SchoolMS.API.Controllers
                     s.Address,
                     s.DOB,
                     s.AdmissionDate,
-                    s.IsActive
+                    s.IsActive,
+                    ProfilePicture = string.IsNullOrEmpty(s.ProfilePicture) ? null : $"/uploads/students/{s.ProfilePicture}"
                 })
                 .ToListAsync();
 
@@ -87,7 +88,7 @@ namespace SchoolMS.API.Controllers
         [HttpPost]
         [Authorize(Roles = "Admin")]
 
-        public async Task<IActionResult> Create([FromBody] CreateStudentDto dto)
+        public async Task<IActionResult> Create([FromForm] CreateStudentDto dto)
         {
             var userId = User.GetUserId();
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -107,6 +108,31 @@ namespace SchoolMS.API.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
+                // 2. Picture Handle Karna
+                string? fileName = null;
+
+                if (dto.ImageFile != null && dto.ImageFile.Length > 0)
+                {
+                    // 1. Purane 'wwwroot' wale path ko hata kar seedha apna D Drive ka path likhein
+                    var uploadsFolder = @"D:\SMS\Student";
+
+                    // Agar folder nahi bana hua to code khud hi bana dega
+                    if (!Directory.Exists(uploadsFolder))
+                    {
+                        Directory.CreateDirectory(uploadsFolder);
+                    }
+
+                    // 2. File ka unique GUID name banayein taake duplicate na ho
+                    fileName = Guid.NewGuid().ToString() + Path.GetExtension(dto.ImageFile.FileName);
+                    var filePath = Path.Combine(uploadsFolder, fileName);
+
+                    // 3. File ko D Drive wale folder mein copy (save) kar dein
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await dto.ImageFile.CopyToAsync(fileStream);
+                    }
+                }
+
                 // Student banana
                 var student = new Student
                 {
@@ -120,7 +146,8 @@ namespace SchoolMS.API.Controllers
                     AdmissionDate = DateTime.UtcNow,
                     IsActive = true,
                     CreatedBy = userId,    // ← Add
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ProfilePicture = fileName != null ? $"/uploads/students/{fileName}" : null
                 };
                 _context.Students.Add(student);
                 await _context.SaveChangesAsync();
@@ -207,6 +234,7 @@ namespace SchoolMS.API.Controllers
         public string PhoneNo { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public DateTime DOB { get; set; }
+        public IFormFile? ImageFile { get; set; } // ← File upload
     }
 
     public class UpdateStudentDto
@@ -219,6 +247,7 @@ namespace SchoolMS.API.Controllers
         public string PhoneNo { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public DateTime DOB { get; set; }
+        public IFormFile? ImageFile { get; set; } // ← File upload
     }
 }
 

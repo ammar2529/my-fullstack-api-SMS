@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SchoolMS.API.Services;
 using SchoolMS.Core.Interfaces;
 using SchoolMS.Infrastructure.Data;
 using SchoolMS.Infrastructure.Repositories;
@@ -20,7 +22,7 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 
 // Auth Service
 builder.Services.AddScoped<IAuthService, AuthService>();
-
+builder.Services.AddScoped<AuditService>();
 // JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
@@ -42,6 +44,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 
 // ✅ Swagger with JWT Security
 builder.Services.AddSwaggerGen(c =>
@@ -92,8 +95,16 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowAngular");
+var staticFilePath = @"D:\SMS\Student";
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(staticFilePath),
+    RequestPath = "/uploads/students" // Angular is path par request bhejega
+});
 app.UseAuthentication();
-app.UseAuthorization();
 
+
+app.UseAuthorization();
 app.MapControllers();
+
 app.Run();
