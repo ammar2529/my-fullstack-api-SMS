@@ -31,6 +31,7 @@ namespace SchoolMS.Infrastructure.Data
 
         public DbSet<Holiday> Holidays => Set<Holiday>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<Country> Countries { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // =============================================

@@ -138,6 +138,58 @@ namespace SchoolMS.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { success = true, message = "Deleted successfully" });
         }
+
+        [HttpGet("studentcards/{examTitle}/{classId}")]
+        public async Task<IActionResult> GetStudentCards(string examTitle, int classId)
+        {
+            var school = await _context.SchoolSettings.FirstOrDefaultAsync();
+
+            var students = await _context.Students
+                .Include(s => s.User)
+                .Include(s => s.Class)
+                .Where(s => s.ClassId == classId && s.IsActive)
+                .Select(s => new {
+                    s.Id,
+                    s.RollNo,
+                    FullName = s.User!.FullName,
+                    ClassName = s.Class!.ClassName + " - " + s.Class!.Section,
+                    s.ProfilePicture,
+                    s.FatherName
+                })
+                .ToListAsync();
+
+            var datesheet = await _context.Datesheets
+                .Include(d => d.Subject)
+                .Where(d => d.ExamTitle == examTitle && d.ClassId == classId && d.IsActive)
+                .OrderBy(d => d.ExamDate)
+                .ToListAsync();
+
+            var result = datesheet.Select(d => new {
+                d.Id,
+                d.ExamTitle,
+                SubjectName = d.Subject!.SubjectName,
+                d.ExamDate,
+                StartTime = d.StartTime.ToString(@"hh\:mm"),
+                EndTime = d.EndTime.ToString(@"hh\:mm"),
+                d.Venue,
+                d.Notes
+            }).ToList();
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    SchoolName = school?.SchoolName ?? "School Management System",
+                    SchoolAddress = school?.SchoolAddress ?? "",
+                    Principal = school?.Principal ?? "",
+                    ExamTitle = examTitle,
+                    ClassName = students.FirstOrDefault()?.ClassName ?? "",
+                    Students = students,
+                    Datesheet = result
+                }
+            });
+        }
     }
 
     public class BulkDatesheetDto

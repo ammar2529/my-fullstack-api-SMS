@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SchoolMS.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SchoolMS.Infrastructure.Data;
 namespace SchoolMS.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260614080233_AddAdmissionNoToStudent")]
+    partial class AddAdmissionNoToStudent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -244,27 +247,6 @@ namespace SchoolMS.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Classes");
-                });
-
-            modelBuilder.Entity("SchoolMS.Core.Entities.Country", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Countries");
                 });
 
             modelBuilder.Entity("SchoolMS.Core.Entities.Datesheet", b =>
@@ -761,6 +743,7 @@ namespace SchoolMS.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Address")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("AdmissionDate")
@@ -771,9 +754,6 @@ namespace SchoolMS.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("ClassId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CountryId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -815,8 +795,6 @@ namespace SchoolMS.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
-
-                    b.HasIndex("CountryId");
 
                     b.HasIndex("UserId");
 
@@ -1268,10 +1246,6 @@ namespace SchoolMS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("SchoolMS.Core.Entities.Country", "Country")
-                        .WithMany()
-                        .HasForeignKey("CountryId");
-
                     b.HasOne("SchoolMS.Core.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1279,8 +1253,6 @@ namespace SchoolMS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Class");
-
-                    b.Navigation("Country");
 
                     b.Navigation("User");
                 });

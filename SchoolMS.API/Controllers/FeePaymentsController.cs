@@ -119,25 +119,32 @@ namespace SchoolMS.API.Controllers
             }
 
             // 3. Pehle se kiye gaye payments check karen is mahine ke
+            // 3. Pehle se kiye gaye payments check karen (Group by StudentId to handle duplicates safely)
             var existingPayments = await _context.FeePayments
                 .Where(p => p.Month == month && p.FeeStructureId == feeStructure.Id && p.IsActive)
-                .ToDictionaryAsync(p => p.StudentId);
+                .GroupBy(p => p.StudentId)
+                .ToDictionaryAsync(
+                    g => g.Key,
+                    g => g.OrderByDescending(p => p.Id).First() // June ke 4 records mein se sirf latest (Id 19) uthayega
+                );
 
             // 4. Combined response taiyar karen
             var bulkData = students.Select(s => {
-                var hasPaid = existingPayments.TryGetValue(s.Id, out var payment);
+                existingPayments.TryGetValue(s.Id, out var payment);
+
                 return new
                 {
                     StudentId = s.Id,
                     RollNo = s.RollNo,
                     FullName = s.User != null ? s.User.FullName : string.Empty,
                     FeeStructureId = feeStructure.Id,
-                    TotalAmount = feeStructure.Amount, // Default structural configuration amount
-                    AmountPaid = hasPaid ? payment.AmountPaid : feeStructure.Amount, // Default complete fee auto fill
-                    Status = hasPaid ? payment.Status : "Unpaid", // Unpaid, Paid, ya Pending
-                    PaymentMethod = hasPaid ? payment.PaymentMethod : "Cash",
-                    Remarks = hasPaid ? payment.Remarks : string.Empty,
-                    PaymentId = hasPaid ? (int?)payment.Id : null
+                    TotalAmount = feeStructure.Amount,
+                    // Agar payment null hai toh feeStructure.Amount utha lo
+                    AmountPaid = payment?.AmountPaid ?? feeStructure.Amount,
+                    Status = payment?.Status ?? "Unpaid",
+                    PaymentMethod = payment?.PaymentMethod ?? "Cash",
+                    Remarks = payment?.Remarks ?? string.Empty,
+                    PaymentId = payment != null ? (int?)payment.Id : null
                 };
             }).ToList();
 
