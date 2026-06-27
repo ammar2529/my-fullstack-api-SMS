@@ -67,5 +67,36 @@ namespace SchoolMS.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { success = true, message = "Settings saved successfully!" });
         }
+
+        [HttpPost("upload-logo")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UploadLogo(IFormFile logo)
+        {
+            if (logo == null || logo.Length == 0)
+                return BadRequest(new { success = false, message = "No file provided" });
+
+            var uploadsFolder = @"D:\SMS\Logo";
+            if (!Directory.Exists(uploadsFolder))
+                Directory.CreateDirectory(uploadsFolder);
+
+            var fileName = "school_logo" + Path.GetExtension(logo.FileName);
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+                await logo.CopyToAsync(stream);
+
+            // Save logo path in settings
+            var userId = User.GetUserId();
+            var settings = await _context.SchoolSettings.FirstOrDefaultAsync();
+            if (settings != null)
+            {
+                settings.LogoUrl = $"/uploads/logo/{fileName}";
+                settings.UpdatedBy = userId;
+                settings.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { success = true, data = $"/uploads/logo/{fileName}" });
+        }
     }
 }

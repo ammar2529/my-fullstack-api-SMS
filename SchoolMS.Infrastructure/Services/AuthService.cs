@@ -69,7 +69,8 @@ namespace SchoolMS.Infrastructure.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role!.RoleName)
+                new Claim(ClaimTypes.Role, user.Role!.RoleName),
+                new Claim(ClaimTypes.Name, user.FullName)
             };
 
             var token = new JwtSecurityToken(

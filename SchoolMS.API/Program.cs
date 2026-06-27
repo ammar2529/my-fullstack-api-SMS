@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SchoolMS.API.Filters;
 using SchoolMS.API.Services;
 using SchoolMS.Core.Interfaces;
 using SchoolMS.Infrastructure.Data;
@@ -89,6 +90,12 @@ builder.Services.AddCors(opt =>
          .AllowAnyHeader()
          .AllowAnyMethod()));
 
+
+// Program.cs
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<AuditLogFilter>();
+});
 var app = builder.Build();
 
 app.UseSwagger();
@@ -100,6 +107,12 @@ app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(staticFilePath),
     RequestPath = "/uploads/students" // Angular is path par request bhejega
+});
+// Existing uploads ke baad add karo
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(@"D:\SMS\Logo"),
+    RequestPath = "/uploads/logo"
 });
 app.UseAuthentication();
 
